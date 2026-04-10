@@ -41,50 +41,48 @@ func AddToTotals(isUpload bool, n uint64) {
 
 // StartMetricsAggregator 启动一个后台协程，每 interval 把增量上报到 currentUser 并记录时间序列点
 func StartMetricsAggregator(interval time.Duration) {
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		var lastU, lastD uint64
-		for range ticker.C {
-			u := atomic.LoadUint64(&totalUpload)
-			d := atomic.LoadUint64(&totalDownload)
-			deltaU := u
-			deltaD := d
-			if u > lastU {
-				deltaU = u - lastU
-			} else {
-				deltaU = 0
-			}
-			if d > lastD {
-				deltaD = d - lastD
-			} else {
-				deltaD = 0
-			}
-			lastU = u
-			lastD = d
-
-			// 上报到 user 单例的流量统计（只从这里上报）
-			if deltaU > 0 || deltaD > 0 {
-				cu := user.GetCurrentUser()
-				if deltaU > 0 {
-					cu.AddUpload(deltaU)
-				}
-				if deltaD > 0 {
-					cu.AddDownload(deltaD)
-				}
-			}
-
-			// 记录时间序列点（以 delta 为单位）
-			pt := Point{Ts: time.Now().Unix(), Upload: deltaU, Download: deltaD}
-			seriesMu.Lock()
-			series = append(series, pt)
-			if len(series) > maxPoints {
-				// 保持尾部最新数据
-				series = series[len(series)-maxPoints:]
-			}
-			seriesMu.Unlock()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	var lastU, lastD uint64
+	for range ticker.C {
+		u := atomic.LoadUint64(&totalUpload)
+		d := atomic.LoadUint64(&totalDownload)
+		deltaU := u
+		deltaD := d
+		if u > lastU {
+			deltaU = u - lastU
+		} else {
+			deltaU = 0
 		}
-	}()
+		if d > lastD {
+			deltaD = d - lastD
+		} else {
+			deltaD = 0
+		}
+		lastU = u
+		lastD = d
+
+		// 上报到 user 单例的流量统计（只从这里上报）
+		if deltaU > 0 || deltaD > 0 {
+			cu := user.GetCurrentUser()
+			if deltaU > 0 {
+				cu.AddUpload(deltaU)
+			}
+			if deltaD > 0 {
+				cu.AddDownload(deltaD)
+			}
+		}
+
+		// 记录时间序列点（以 delta 为单位）
+		pt := Point{Ts: time.Now().Unix(), Upload: deltaU, Download: deltaD}
+		seriesMu.Lock()
+		series = append(series, pt)
+		if len(series) > maxPoints {
+			// 保持尾部最新数据
+			series = series[len(series)-maxPoints:]
+		}
+		seriesMu.Unlock()
+	}
 }
 
 // GetSeries 返回当前时间序列的副本（按时间升序）
