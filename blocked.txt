@@ -3,4 +3,9 @@ clients2.google.com:443
 android.clients.google.com:443
 mtalk.google.com:5228
 content-autofill.googleapis.com:443
+clients4.google.com:443bfs:443
+bfs:443
+www.google.com:443
 clients4.google.com:443
+www.googleapis.com:443
+accounts.google.com:443
