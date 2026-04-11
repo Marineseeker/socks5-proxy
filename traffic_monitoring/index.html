@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+  </head>
+  <body>
+    <div id="chart" style="width: 100%; height: 400px"></div>
+
+    <script>
+      // ... 前面 html 和 div 部分保持不变 ...
+
+      const chart = echarts.init(document.getElementById('chart'));
+
+      // 1. 基础配置：去掉 xAxis 的 min/max 固定函数，改由 handlePoint 动态控制
+      chart.setOption({
+        title: { text: '流量监控' },
+        xAxis: {
+          type: 'time',
+          splitLine: { show: false },
+        },
+        yAxis: {
+          type: 'value',
+          axisLabel: {
+            // 修正：formatter 必须放在 axisLabel 内部
+            formatter: function (value) {
+              // 这里的 value 是 Bytes，除以 1024^2 得到 MB
+              return (value / 1024 / 1024).toFixed(2) + ' MB/s';
+            },
+          },
+        },
+        series: [
+          {
+            name: 'Upload',
+            type: 'line',
+            showSymbol: false,
+            data: [],
+            // Tooltip 增强：悬浮时根据大小自动切换 B/KB/MB
+            tooltip: {
+              valueFormatter: (value) => formatBytes(value) + '/s',
+            },
+          },
+          {
+            name: 'Download',
+            type: 'line',
+            showSymbol: false,
+            data: [],
+            tooltip: {
+              valueFormatter: (value) => formatBytes(value) + '/s',
+            },
+          },
+        ],
+        legend: { data: ['Upload', 'Download'] },
+        tooltip: {
+          trigger: 'axis',
+        },
+      });
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+      }
+
+      let lastTs = 0;
+      const apiBase = 'http://localhost:8080';
+
+      // 2. 核心处理函数：所有数据更新（WS 或 轮询）都汇聚于此
+      function handlePoint(p) {
+        if (!p) return;
+
+        // go 端发送的时间戳单位是秒，前端需要转换为毫秒
+        const nowMs = p.ts * 1000;
+        const oneHourMs = 60 * 60 * 1000;
+        const oneHourAgo = nowMs - oneHourMs;
+
+        const options = chart.getOption();
+        let uploadData = options.series[0].data || [];
+        let downloadData = options.series[1].data || [];
+
+        // 1. 压入新数据
+        uploadData.push([nowMs, p.upload_speed]);
+        downloadData.push([nowMs, p.download_speed]);
+
+        // 2. 只有当数据超过 1 小时跨度时，才执行清理逻辑
+        // 这样可以保证初始阶段数据是“累积”的，而不是一上来就剪裁
+        if (uploadData.length > 0) {
+          const firstPointTs = uploadData[0][0];
+          if (nowMs - firstPointTs > oneHourMs) {
+            uploadData = uploadData.filter((item) => item[0] >= oneHourAgo);
+            downloadData = downloadData.filter((item) => item[0] >= oneHourAgo);
+          }
+        }
+
+        // 3. 计算 X 轴的显示范围
+        let minSetting, maxSetting;
+
+        if (uploadData.length > 0) {
+          const firstPointTs = uploadData[0][0];
+          const range = nowMs - firstPointTs;
+
+          if (range < oneHourMs) {
+            // 场景 A：数据不足一小时 -> 坐标轴自适应，让折线铺满
+            minSetting = 'dataMin';
+            maxSetting = 'dataMax';
+          } else {
+            // 场景 B：数据超过一小时 -> 锁定一小时窗口，实现向左平滑滚动
+            minSetting = oneHourAgo;
+            maxSetting = nowMs;
+          }
+        }
+
+        // 4. 更新图表
+        chart.setOption({
+          series: [{ data: uploadData }, { data: downloadData }],
+          xAxis: {
+            min: minSetting,
+            max: maxSetting,
+            // 建议设置这个参数，防止轴标签在切换模式时剧烈闪烁
+            axisLabel: { hideOverlap: true },
+          },
+        });
+
+        lastTs = p.ts;
+      }
+
+      // 3. 初始化：拉取历史数据
+      async function init() {
+        try {
+          const res = await fetch(apiBase + '/metrics/series');
+          const data = await res.json();
+          if (data && data.length > 0) {
+            // 批量处理初始点
+            const upload = data.map((p) => [p.ts * 1000, p.upload_speed]);
+            const download = data.map((p) => [p.ts * 1000, p.download_speed]);
+
+            chart.setOption({
+              series: [{ data: upload }, { data: download }],
+            });
+            lastTs = data[data.length - 1].ts;
+          }
+        } catch (e) {
+          console.error('Init failed', e);
+        }
+      }
+
+      // 4. 轮询兜底：统一使用 handlePoint
+      async function poll() {
+        try {
+          const res = await fetch(apiBase + `/metrics/latest?since=${lastTs}`);
+          const updates = await res.json();
+          // 如果有多条更新，循环处理
+          updates.forEach((p) => handlePoint(p));
+        } catch (e) {
+          console.error('Poll failed', e);
+        }
+      }
+
+      // 5. WebSocket 连接
+      function connectWS() {
+        const ws = new WebSocket('ws://localhost:8080/ws');
+        ws.onmessage = (e) => {
+          try {
+            handlePoint(JSON.parse(e.data));
+          } catch (err) {
+            console.error('ws parse err', err);
+          }
+        };
+        ws.onclose = () => {
+          console.warn('ws closed, fallback to polling');
+          setInterval(poll, 5000); // WS断开后每5秒轮询一次
+        };
+        ws.onerror = () => ws.close();
+      }
+
+      init().then(connectWS);
+    </script>
+  </body>
+</html>

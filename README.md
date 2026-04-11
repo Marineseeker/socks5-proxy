@@ -3,6 +3,7 @@ Socks5 Proxy
 这是一个用 Go 编写的轻量级 SOCKS5 代理实现，包含 TCP/UDP 中继、简单的用户名/密码骨架、阻断缓存与实时流量指标上报功能。
 
 **主要特性**
+
 - 支持 SOCKS5 的 CONNECT（TCP）和 UDP ASSOCIATE（UDP）命令
 - 简单的用户名/密码认证骨架（示例验证）
 - 目标阻断（blocked cache），支持持久化到文件并按 TTL 自动解除
@@ -10,6 +11,7 @@ Socks5 Proxy
 - 命令行交互（stdin），可以查询当前用户流量
 
 **要求**
+
 - Go 1.25.x 或更高（项目 go.mod 指定 go 1.25.3）
 
 **构建与运行**
@@ -27,6 +29,7 @@ go run . -listen :1080 -ws-addr :8080
 ```
 
 命令行参数（可选）
+
 - -listen : 本地 SOCKS5 监听地址，默认 :1080
 - -ws-addr : WebSocket/HTTP 服务监听地址，默认 :8080
 - -blocked-ttl : 封禁目标的默认持续时间，默认 10m
@@ -39,6 +42,7 @@ go run . -listen :1080 -ws-addr :8080
 ```
 
 **Web UI / 指标接口**
+
 - 静态文件托管在项目根（程序会把根目录作为 HTTP 根），可直接在浏览器打开 http://<ws-addr>/index.html。
 - WebSocket 路径：/ws（用于实时推送聚合的时间序列点）
 - 时间序列数据：/metrics/series （返回 JSON 数组）
@@ -46,12 +50,14 @@ go run . -listen :1080 -ws-addr :8080
 
 **交互式命令**
 程序会在后台启动一个命令行处理器（stdin），支持命令：
+
 - show <username>: 显示指定用户的上传/下载字节数
 - exit : 退出程序
 
 （命令处理在 cmd/handleCommandLine.go）
 
 **关键源码文件说明**
+
 - main.go — 启动参数、WebSocket/HTTP server、metrics 聚合与主服务器入口
 - server.go — TCP/UDP 接受、连接处理、TCP 双向 relay 与 UDP relay 实现
 - socks5.go — SOCKS5 握手、请求解析、响应构造、简单用户认证骨架
@@ -67,6 +73,7 @@ go run . -listen :1080 -ws-addr :8080
 流量在转发时会调用 metrics.AddToTotals() 累积全局字节计数，metrics.StartMetricsAggregator() 周期性（默认 main 中设置为 1s）把增量上报到当前用户并记录时间序列点，前端通过 WebSocket/HTTP 获取并展示。
 
 **开发与调试**
+
 - 在开发环境，可用 go run . 快速启动
 - 日志使用标准库 log，便于在容器中重定向
 

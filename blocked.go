@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
-	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type blockEntry struct {
@@ -45,18 +46,18 @@ func (bc *blockedCache) loadPermanent() {
 			bc.m[addr] = &blockEntry{permanent: true}
 		}
 	}
-	log.Printf("[socks] loaded %d permanently blocked addresses", len(bc.m))
+	zap.S().Infof("[socks] loaded %d permanently blocked addresses", len(bc.m))
 }
 
 func (bc *blockedCache) savePermanent(addr string) {
 	f, err := os.OpenFile(bc.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Printf("failed to save blocked addr: %v", err)
+		zap.S().Errorf("failed to save blocked addr: %v", err)
 		return
 	}
 	defer f.Close()
 	if _, err := f.WriteString(addr + "\n"); err != nil {
-		log.Printf("failed to write blocked addr into file: %v", err)
+		zap.S().Errorf("failed to write blocked addr into file: %v", err)
 	}
 }
 
@@ -93,13 +94,13 @@ func (bc *blockedCache) markBlocked(addr string) {
 	entry.failures++
 	if entry.failures <= 3 {
 		entry.blockedUntil = time.Now().Add(bc.ttl)
-		log.Printf("[socks] %s is temporarily blocked until %s", addr, entry.blockedUntil)
+		zap.S().Infof("[socks] %s is temporarily blocked until %s", addr, entry.blockedUntil)
 		return
 	}
 	if entry.failures > 3 {
 		entry.permanent = true
 		bc.savePermanent(addr)
-		log.Printf("[socks] %s is permanently blocked after %d failures", addr, entry.failures)
+		zap.S().Infof("[socks] %s is permanently blocked after %d failures", addr, entry.failures)
 	}
 }
 

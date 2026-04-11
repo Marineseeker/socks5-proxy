@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
 )
 
@@ -34,9 +35,9 @@ var (
 func main() {
 	flag.Parse()
 
-	fmt.Printf("SOCKS5 Stress Test -> proxy=%s target=%s pid=%d\n", *proxyAddr, *target, *pid)
-	fmt.Println(strings.Repeat("-", 90))
-	fmt.Printf("%-8s %-8s %-8s %-14s %-14s %-14s\n",
+	zap.S().Infof("SOCKS5 Stress Test -> proxy=%s target=%s pid=%d", *proxyAddr, *target, *pid)
+	zap.S().Info(strings.Repeat("-", 90))
+	zap.S().Infof("%-8s %-8s %-8s %-14s %-14s %-14s",
 		"concur", "sent", "ok", "avg_latency", "cpu(%)", "mem(MB)")
 
 	switch *mode {
@@ -52,14 +53,14 @@ func main() {
 
 func runOnce(concurrency int) {
 	if concurrency == 0 {
-		fmt.Printf("%-8d %-8d %-8d %-14s %-14s %-14s\n",
+		zap.S().Infof("%-8d %-8d %-8d %-14s %-14s %-14s",
 			0, 0, 0, "-", readCPU(), readMem())
 		return
 	}
 
 	dialer, err := proxy.SOCKS5("tcp", *proxyAddr, nil, proxy.Direct)
 	if err != nil {
-		fmt.Println("create socks5 dialer failed:", err)
+		zap.S().Errorf("create socks5 dialer failed: %v", err)
 		return
 	}
 
@@ -106,7 +107,7 @@ func runOnce(concurrency int) {
 		avg = time.Duration(totalLatency / ok)
 	}
 
-	fmt.Printf("%-8d %-8d %-8d %-14s %-14s %-14s\n",
+	zap.S().Infof("%-8d %-8d %-8d %-14s %-14s %-14s",
 		concurrency, sent, ok, avg, readCPU(), readMem())
 }
 

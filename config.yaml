@@ -1,0 +1,19 @@
+level: 'info'
+development: false
+encoding: 'console'
+outputPaths:
+  - 'stdout'
+errorOutputPaths:
+  - 'stderr'
+encoderConfig:
+  messageKey: 'msg'
+  levelKey: 'level'
+  timeKey: 'ts'
+  nameKey: 'logger'
+  callerKey: 'caller'
+  stacktraceKey: 'stacktrace'
+  lineEnding: "\n"
+  levelEncoder: 'capitalColor'
+  timeEncoder: 'iso8601'
+  durationEncoder: 'string'
+  callerEncoder: 'short'

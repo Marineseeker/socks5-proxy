@@ -19,9 +19,9 @@ func GetTotals() (uint64, uint64) {
 }
 
 type Point struct {
-	Ts       int64  `json:"ts"`     // unix timestamp
-	Upload   uint64 `json:"upload"` // bytes in this interval
-	Download uint64 `json:"download"`
+	Ts            int64  `json:"ts"`           // unix timestamp
+	UploadSpeed   uint64 `json:"upload_speed"` // bytes in this interval
+	DownloadSpeed uint64 `json:"download_speed"`
 }
 
 var (
@@ -45,24 +45,24 @@ func StartMetricsAggregator(interval time.Duration) {
 	defer ticker.Stop()
 	var lastU, lastD uint64
 	for range ticker.C {
-		u := atomic.LoadUint64(&totalUpload)
-		d := atomic.LoadUint64(&totalDownload)
-		deltaU := u
-		deltaD := d
-		if u > lastU {
-			deltaU = u - lastU
+		U := atomic.LoadUint64(&totalUpload)
+		D := atomic.LoadUint64(&totalDownload)
+
+		deltaU := U - lastU
+		deltaD := D - lastD
+		if U > lastU {
+			deltaU = U - lastU
 		} else {
 			deltaU = 0
 		}
-		if d > lastD {
-			deltaD = d - lastD
+		if D > lastD {
+			deltaD = D - lastD
 		} else {
 			deltaD = 0
 		}
-		lastU = u
-		lastD = d
+		lastU = U
+		lastD = D
 
-		// 上报到 user 单例的流量统计（只从这里上报）
 		if deltaU > 0 || deltaD > 0 {
 			cu := user.GetCurrentUser()
 			if deltaU > 0 {
@@ -72,16 +72,18 @@ func StartMetricsAggregator(interval time.Duration) {
 				cu.AddDownload(deltaD)
 			}
 		}
-
-		// 记录时间序列点（以 delta 为单位）
-		pt := Point{Ts: time.Now().Unix(), Upload: deltaU, Download: deltaD}
+		pt := Point{
+			Ts:            time.Now().Unix(),
+			UploadSpeed:   deltaU,
+			DownloadSpeed: deltaD,
+		}
 		seriesMu.Lock()
 		series = append(series, pt)
 		if len(series) > maxPoints {
-			// 保持尾部最新数据
 			series = series[len(series)-maxPoints:]
 		}
 		seriesMu.Unlock()
+		broadcast(pt)
 	}
 }
 
@@ -110,7 +112,7 @@ func GetLastNPoint(n int) []Point {
 func GetLastPoint() Point {
 	pts := GetLastNPoint(1)
 	if len(pts) == 0 {
-		return Point{Ts: time.Now().Unix(), Upload: 0, Download: 0}
+		return Point{Ts: time.Now().Unix(), UploadSpeed: 0, DownloadSpeed: 0}
 	}
 	return pts[0]
 }

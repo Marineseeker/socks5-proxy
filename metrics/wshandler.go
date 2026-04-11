@@ -1,11 +1,11 @@
 package metrics
 
 import (
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 var upgrader = websocket.Upgrader{
@@ -19,22 +19,19 @@ var upgrader = websocket.Upgrader{
 func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("upgrader error:", err)
+		zap.S().Errorf("upgrader error: %v", err)
 		return
 	}
 	defer conn.Close()
 
-	log.Println("Client Connected")
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		point := GetLastPoint()
-		if err := conn.WriteJSON(point); err != nil {
-			log.Println("write error:", err)
-			return
+	zap.S().Info("Client Connected")
+	ch := Subscribe()
+	defer Unsubscribe(ch)
+	for pt := range ch {
+		if err := conn.WriteJSON(pt); err != nil {
+			zap.S().Errorf("failed to write point to websocket: %v", err)
+			break
 		}
 	}
-
-	log.Println("Client Disconnected")
+	zap.S().Info("Client Disconnected")
 }
