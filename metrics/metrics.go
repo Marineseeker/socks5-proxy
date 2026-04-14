@@ -4,8 +4,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/socks5-proxy/user"
 )
 
 // 全局原子计数，记录经过代理的总流量（字节）
@@ -39,54 +37,6 @@ func AddToTotals(isUpload bool, n uint64) {
 	}
 }
 
-// StartMetricsAggregator 启动一个后台协程，每 interval 把增量上报到 currentUser 并记录时间序列点
-func StartMetricsAggregator(interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	var lastU, lastD uint64
-	for range ticker.C {
-		U := atomic.LoadUint64(&totalUpload)
-		D := atomic.LoadUint64(&totalDownload)
-
-		deltaU := U - lastU
-		deltaD := D - lastD
-		if U > lastU {
-			deltaU = U - lastU
-		} else {
-			deltaU = 0
-		}
-		if D > lastD {
-			deltaD = D - lastD
-		} else {
-			deltaD = 0
-		}
-		lastU = U
-		lastD = D
-
-		if deltaU > 0 || deltaD > 0 {
-			cu := user.GetCurrentUser()
-			if deltaU > 0 {
-				cu.AddUpload(deltaU)
-			}
-			if deltaD > 0 {
-				cu.AddDownload(deltaD)
-			}
-		}
-		pt := Point{
-			Ts:            time.Now().Unix(),
-			UploadSpeed:   deltaU,
-			DownloadSpeed: deltaD,
-		}
-		seriesMu.Lock()
-		series = append(series, pt)
-		if len(series) > maxPoints {
-			series = series[len(series)-maxPoints:]
-		}
-		seriesMu.Unlock()
-		broadcast(pt)
-	}
-}
-
 // GetSeries 返回当前时间序列的副本（按时间升序）
 func GetSeries() []Point {
 	seriesMu.Lock()
@@ -109,10 +59,16 @@ func GetLastNPoint(n int) []Point {
 	return out
 }
 
-func GetLastPoint() Point {
-	pts := GetLastNPoint(1)
-	if len(pts) == 0 {
-		return Point{Ts: time.Now().Unix(), UploadSpeed: 0, DownloadSpeed: 0}
+func GetLastPoint() *Point {
+	pt := GetLastNPoint(1)
+	seriesMu.Lock()
+	defer seriesMu.Unlock()
+	if len(series) == 0 {
+		return &Point{
+			Ts:            time.Now().Unix(),
+			UploadSpeed:   0,
+			DownloadSpeed: 0,
+		}
 	}
-	return pts[0]
+	return &pt[0]
 }

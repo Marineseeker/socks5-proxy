@@ -9,3 +9,5 @@ www.google.com:443
 clients4.google.com:443
 www.googleapis.com:443
 accounts.google.com:443
+data.bilibili.com:443
+api.live.bilibili.com:443

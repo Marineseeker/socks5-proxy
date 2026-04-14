@@ -1,0 +1,48 @@
+2026-04-13T22:45:59.828+0800	[34mINFO[0m	socks5/main.go:28	starting socks5 server
+2026-04-13T22:45:59.845+0800	[34mINFO[0m	socks5/blocked.go:49	[socks] loaded 13 permanently blocked addresses
+2026-04-13T22:45:59.845+0800	[34mINFO[0m	socks5/main.go:38	starting socks5 server
+2026-04-13T22:45:59.845+0800	[34mINFO[0m	cmd/handleCommandLine.go:14	Type 'show <username>' to view traffic, 'exit' to quit
+2026-04-13T22:45:59.845+0800	[34mINFO[0m	socks5/main.go:61	HTTP/WebSocket server listening on %s:8080
+2026-04-13T22:45:59.850+0800	[34mINFO[0m	socks5/server.go:21	Socks5 server listening on :1080
+2026-04-13T22:46:06.730+0800	[34mINFO[0m	metrics/wshandler.go:27	Client Connected
+2026-04-13T22:46:09.851+0800	[31mERROR[0m	metrics/wshandler.go:32	failed to write point to websocket: write tcp [::1]:8080->[::1]:13884: wsasend: An established connection was aborted by the software in your host machine.
+github.com/socks5-proxy/metrics.WsHandler
+	E:/GoProj/socks5/metrics/wshandler.go:32
+main.startWebSocketServer.func1
+	E:/GoProj/socks5/main.go:54
+net/http.HandlerFunc.ServeHTTP
+	E:/GoLang/src/net/http/server.go:2322
+net/http.(*ServeMux).ServeHTTP
+	E:/GoLang/src/net/http/server.go:2861
+net/http.serverHandler.ServeHTTP
+	E:/GoLang/src/net/http/server.go:3340
+net/http.(*conn).serve
+	E:/GoLang/src/net/http/server.go:2109
+2026-04-13T22:46:09.852+0800	[34mINFO[0m	metrics/wshandler.go:36	Client Disconnected
+2026-04-13T22:46:11.998+0800	[34mINFO[0m	metrics/wshandler.go:27	Client Connected
+2026-04-13T22:46:16.244+0800	[34mINFO[0m	socks5/blocked.go:97	[socks] mtalk.google.com:443 is temporarily blocked until 2026-04-13 22:56:16.2444553 +0800 CST m=+616.421505101
+2026-04-13T22:46:16.244+0800	[34mINFO[0m	socks5/server.go:239	[socks] marking mtalk.google.com:443 as blocked for 10m0s
+2026-04-13T22:46:22.690+0800	[34mINFO[0m	socks5/server.go:280	[relay] write err: write tcp 127.0.0.1:1080->127.0.0.1:14042: wsasend: An established connection was aborted by the software in your host machine.
+2026-04-13T22:46:30.654+0800	[34mINFO[0m	socks5/server.go:280	[relay] write err: write tcp 127.0.0.1:1080->127.0.0.1:13954: wsasend: An established connection was aborted by the software in your host machine.
+2026-04-13T22:47:55.405+0800	[34mINFO[0m	socks5/server.go:280	[relay] write err: write tcp 127.0.0.1:1080->127.0.0.1:14336: wsasend: An established connection was aborted by the software in your host machine.
+2026-04-13T22:47:55.410+0800	[34mINFO[0m	socks5/server.go:280	[relay] write err: write tcp 127.0.0.1:1080->127.0.0.1:14231: wsasend: An established connection was aborted by the software in your host machine.
+2026-04-13T22:47:57.845+0800	[31mERROR[0m	metrics/wshandler.go:32	failed to write point to websocket: write tcp [::1]:8080->[::1]:13906: wsasend: An established connection was aborted by the software in your host machine.
+github.com/socks5-proxy/metrics.WsHandler
+	E:/GoProj/socks5/metrics/wshandler.go:32
+main.startWebSocketServer.func1
+	E:/GoProj/socks5/main.go:54
+net/http.HandlerFunc.ServeHTTP
+	E:/GoLang/src/net/http/server.go:2322
+net/http.(*ServeMux).ServeHTTP
+	E:/GoLang/src/net/http/server.go:2861
+net/http.serverHandler.ServeHTTP
+	E:/GoLang/src/net/http/server.go:3340
+net/http.(*conn).serve
+	E:/GoLang/src/net/http/server.go:2109
+2026-04-13T22:47:57.845+0800	[34mINFO[0m	metrics/wshandler.go:36	Client Disconnected
+2026-04-13T23:04:29.702+0800	[34mINFO[0m	socks5/main.go:29	starting socks5 server
+2026-04-13T23:04:29.718+0800	[34mINFO[0m	socks/blocked.go:52	[socks] loaded 13 permanently blocked addresses
+2026-04-13T23:04:29.719+0800	[34mINFO[0m	socks5/main.go:39	starting socks5 server
+2026-04-13T23:04:29.719+0800	[34mINFO[0m	cmd/handleCommandLine.go:14	Type 'show <username>' to view traffic, 'exit' to quit
+2026-04-13T23:04:29.719+0800	[34mINFO[0m	socks5/main.go:62	HTTP/WebSocket server listening on %s:8080
+2026-04-13T23:04:29.724+0800	[34mINFO[0m	socks/server.go:22	Socks5 server listening on :1080

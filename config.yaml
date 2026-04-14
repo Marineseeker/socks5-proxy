@@ -3,6 +3,7 @@ development: false
 encoding: 'console'
 outputPaths:
   - 'stdout'
+  - 'logs/app.log'
 errorOutputPaths:
   - 'stderr'
 encoderConfig:

@@ -63,8 +63,12 @@ func GetCurrentUser() *User {
 	return currentUser
 }
 
-func (u *User) AddUpload(n uint64)   { atomic.AddUint64(&u.flow.upload, n) }
-func (u *User) AddDownload(n uint64) { atomic.AddUint64(&u.flow.download, n) }
+func (u *User) AddUpload(n uint64) {
+	atomic.AddUint64(&u.flow.upload, n)
+}
+func (u *User) AddDownload(n uint64) {
+	atomic.AddUint64(&u.flow.download, n)
+}
 func (u *User) GetFlow() (upload, download uint64) {
 	return atomic.LoadUint64(&u.flow.upload), atomic.LoadUint64(&u.flow.download)
 }

@@ -14,19 +14,19 @@
 
       // 1. 基础配置：去掉 xAxis 的 min/max 固定函数，改由 handlePoint 动态控制
       chart.setOption({
-        title: { text: '流量监控' },
+        title: { text: '实时流量监控', left: 'center' },
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Upload', 'Download'], top: 80 },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
         xAxis: {
           type: 'time',
           splitLine: { show: false },
+          axisLabel: { hideOverlap: true },
         },
         yAxis: {
           type: 'value',
           axisLabel: {
-            // 修正：formatter 必须放在 axisLabel 内部
-            formatter: function (value) {
-              // 这里的 value 是 Bytes，除以 1024^2 得到 MB
-              return (value / 1024 / 1024).toFixed(2) + ' MB/s';
-            },
+            formatter: (value) => (value / 1024 / 1024).toFixed(2) + ' MB/s',
           },
         },
         series: [
@@ -34,26 +34,19 @@
             name: 'Upload',
             type: 'line',
             showSymbol: false,
+            areaStyle: { opacity: 0.1 }, // 加点阴影更好看
             data: [],
-            // Tooltip 增强：悬浮时根据大小自动切换 B/KB/MB
-            tooltip: {
-              valueFormatter: (value) => formatBytes(value) + '/s',
-            },
+            tooltip: { valueFormatter: (v) => formatBytes(v) + '/s' },
           },
           {
             name: 'Download',
             type: 'line',
             showSymbol: false,
+            areaStyle: { opacity: 0.1 },
             data: [],
-            tooltip: {
-              valueFormatter: (value) => formatBytes(value) + '/s',
-            },
+            tooltip: { valueFormatter: (v) => formatBytes(v) + '/s' },
           },
         ],
-        legend: { data: ['Upload', 'Download'] },
-        tooltip: {
-          trigger: 'axis',
-        },
       });
 
       function formatBytes(bytes) {
