@@ -294,6 +294,7 @@ func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 					zap.S().Errorf("[relay] write err: %v", werr)
 					break
 				}
+				metrics.AddToTotals(isUpload, uint64(n))
 				localCounter += uint64(n)
 				if localCounter >= 16*1024 {
 					metrics.BroadcastRawTraffic(&metrics.RawTrafficEvent{
@@ -304,14 +305,11 @@ func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 					})
 					localCounter = 0
 				}
-				metrics.AddToTotals(isUpload, uint64(n))
+
 			}
 			if err != nil {
 				if !utils.IsIgnorableError(err) && err != io.EOF {
 					zap.S().Errorf("[relay] read err: %v", err)
-				}
-				if localCounter > 0 {
-					metrics.AddToTotals(isUpload, localCounter)
 				}
 				break
 			}

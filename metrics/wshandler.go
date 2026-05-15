@@ -28,6 +28,8 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 	ch := Subscribe()
 	defer Unsubscribe(ch)
 
+	done := make(chan struct{})
+
 	// 消费者端计算 Point
 	go func() {
 		var lastTime time.Time
@@ -40,6 +42,8 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 
 		for {
 			select {
+			case <-done:
+				return
 			case event := <-ch:
 				// 累加原始字节数
 				if event.IsUpload {
@@ -83,6 +87,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
+			close(done)
 			break
 		}
 	}
