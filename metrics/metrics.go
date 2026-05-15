@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,12 +15,6 @@ var (
 
 func GetTotals() (uint64, uint64) {
 	return atomic.LoadUint64(&totalUpload), atomic.LoadUint64(&totalDownload)
-}
-
-type Point struct {
-	Ts            int64  `json:"ts"`           // unix timestamp
-	UploadSpeed   uint64 `json:"upload_speed"` // bytes in this interval
-	DownloadSpeed uint64 `json:"download_speed"`
 }
 
 var (
@@ -59,10 +54,27 @@ func GetLastNPoint(n int) []Point {
 	return out
 }
 
-func GetLastPoint() *Point {
-	pt := GetLastNPoint(1)
+// GetSeriesSince 返回时间戳大于 since 的时间序列点（按时间升序）
+// 使用二分查找定位起始位置，避免全量拷贝后线性过滤
+func GetSeriesSince(since int64) []Point {
 	seriesMu.Lock()
 	defer seriesMu.Unlock()
+
+	// sort.Search 找到第一个 Ts > since 的索引
+	idx := sort.Search(len(series), func(i int) bool {
+		return series[i].Ts > since
+	})
+
+	if idx >= len(series) {
+		return nil
+	}
+	out := make([]Point, len(series)-idx)
+	copy(out, series[idx:])
+	return out
+}
+
+func GetLastPoint() *Point {
+	pt := GetLastNPoint(1)
 	if len(series) == 0 {
 		return &Point{
 			Ts:            time.Now().Unix(),

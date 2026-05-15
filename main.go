@@ -39,7 +39,7 @@ func main() {
 	zap.L().Info("starting socks5 server")
 	// 启动全局流量聚合器，每5秒生成一个时间序列点并上报到当前用户
 	// todo 参数可配置化
-	go metrics.StartMetricsAggregatorV2(interval, 0.3) // 传入 interval 和 smoothingAlpha 参数
+	// go metrics.StartMetricsAggregatorV2(interval, 0.3) // 传入 interval 和 smoothingAlpha 参数
 	// 启动命令行接口为 goroutine，使其能并发接收 stdin 输入
 	go cmd.HandleCommandLine()
 	// 启动 WebSocket 服务器
@@ -52,15 +52,15 @@ func startWebSocketServer(addr string, interval time.Duration) {
 	// 注册静态文件和 metrics 路由
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		// todo interval 参数可以配置化
-		metrics.WsHandler(w, r, interval) // 传入 interval 参数
+		metrics.WsHandler(w, r) // 传入 interval 参数
 	})
 	http.HandleFunc("/metrics/series", metrics.SeriesHandler)
 	http.HandleFunc("/metrics/latest", metrics.LatestHandler)
 	// 静态文件使用当前目录（项目根），index.html 在根目录
 	http.Handle("/", http.FileServer(http.Dir(".")))
 
-	zap.S().Info("HTTP/WebSocket server listening on %s", addr)
+	zap.S().Infof("HTTP/WebSocket server listening on %s", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
-		zap.S().Info("http server failed: %v", err)
+		zap.S().Errorf("http server failed: %v", err)
 	}
 }

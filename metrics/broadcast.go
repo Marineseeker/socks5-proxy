@@ -1,3 +1,4 @@
+// metrics/broadcast.go (重构)
 package metrics
 
 import (
@@ -6,23 +7,23 @@ import (
 
 type Broker struct {
 	mu          sync.RWMutex
-	subscribers map[chan Point]struct{}
+	subscribers map[chan *RawTrafficEvent]struct{} // 改为广播 RawTrafficEvent
 }
 
 var globalBroker = &Broker{
-	subscribers: make(map[chan Point]struct{}),
+	subscribers: make(map[chan *RawTrafficEvent]struct{}),
 }
 
-func Subscribe() chan Point {
+func Subscribe() chan *RawTrafficEvent {
 	globalBroker.mu.Lock()
 	defer globalBroker.mu.Unlock()
 
-	ch := make(chan Point, 100) // 带缓冲的通道，避免阻塞
+	ch := make(chan *RawTrafficEvent, 100)
 	globalBroker.subscribers[ch] = struct{}{}
 	return ch
 }
 
-func Unsubscribe(ch chan Point) {
+func Unsubscribe(ch chan *RawTrafficEvent) {
 	globalBroker.mu.Lock()
 	defer globalBroker.mu.Unlock()
 
@@ -30,15 +31,16 @@ func Unsubscribe(ch chan Point) {
 	close(ch)
 }
 
-func broadcast(pt Point) {
+// broadcast 现在广播原始流量事件
+func BroadcastRawTraffic(event *RawTrafficEvent) {
 	globalBroker.mu.RLock()
 	defer globalBroker.mu.RUnlock()
 
 	for ch := range globalBroker.subscribers {
 		select {
-		case ch <- pt:
+		case ch <- event:
 		default:
-			// 如果通道已满，跳过这个订阅者，避免阻塞
+			// 通道已满，跳过这个订阅者
 		}
 	}
 }

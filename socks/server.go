@@ -15,32 +15,46 @@ import (
 
 // RunServer 启动 socks5 TCP 服务器并接受连接
 func RunServer(listenAddr string) {
-	ln, err := net.Listen("tcp", listenAddr)
+	s := NewServer(listenAddr, BlockedCache)
+	s.Start()
+}
+
+type Server struct {
+	ListenAddr string
+	Blocked    *blockedCache
+}
+
+func NewServer(listenAddr string, blocked *blockedCache) *Server {
+	return &Server{ListenAddr: listenAddr, Blocked: blocked}
+}
+
+func (s *Server) Start() {
+	ln, err := net.Listen("tcp", s.ListenAddr)
 	if err != nil {
-		zap.S().Fatalf("failed to listen on %s: %s", listenAddr, err)
+		zap.S().Fatalf("failed to listen on %s: %s", s.ListenAddr, err)
 	}
-	zap.S().Infof("Socks5 server listening on %s", listenAddr)
+	zap.S().Infof("Socks5 server listening on %s", s.ListenAddr)
 
 	for {
 		conn_from_client, err := ln.Accept()
 		if err != nil {
-			zap.S().Infof("failed to accept: %s", err)
+			zap.S().Errorf("failed to accept: %s", err)
 			continue
 		}
-		go handleConn(conn_from_client)
+		go s.handleConn(conn_from_client)
 	}
 }
 
-func handleConn(conn_from_client net.Conn) {
+func (s *Server) handleConn(conn_from_client net.Conn) {
 	defer conn_from_client.Close()
 	if err := Socks5Handshake(conn_from_client); err != nil {
-		zap.S().Infof("handshake failed: %v", err)
+		zap.S().Errorf("handshake failed: %v", err)
 		return
 	}
 	// 从 socks5ParseRequest 中拿到 cmd 与 targetAddr,
 	cmd, targetAddr, err := Socks5ParseRequest(conn_from_client)
 	if err != nil {
-		zap.S().Infof("request parse failed: %v", err)
+		zap.S().Errorf("request parse failed: %v", err)
 		SendSocks5Reply(conn_from_client, RepCommandNotSupported, nil)
 		return
 	}
@@ -48,22 +62,22 @@ func handleConn(conn_from_client net.Conn) {
 	switch cmd {
 	case CmdConnect:
 		// 在 relay 中进行双向 TCP 转发
-		if err := relay(conn_from_client, targetAddr); err != nil {
+		if err := s.relay(conn_from_client, targetAddr); err != nil {
 			SendSocks5Reply(conn_from_client, RepHostUnreachable, nil)
 			return
 		}
 	case CmdUDPAssociate:
-		handleUDPAssociate(conn_from_client)
+		s.handleUDPAssociate(conn_from_client)
 	default:
-		zap.S().Infof("unsupported command: %v", err)
+		zap.S().Infof("unsupported command: %v", cmd)
 		SendSocks5Reply(conn_from_client, RepCommandNotSupported, nil)
 	}
 }
 
-func handleUDPAssociate(conn_from_client net.Conn) {
+func (s *Server) handleUDPAssociate(conn_from_client net.Conn) {
 	udpConn, err := net.ListenUDP("udp", nil)
 	if err != nil {
-		zap.S().Infof("[udp] failed to create udp linstening: %v", err)
+		zap.S().Errorf("[udp] failed to create udp linstening: %v", err)
 		SendSocks5Reply(conn_from_client, RepServerFailure, nil)
 		return
 	}
@@ -71,7 +85,7 @@ func handleUDPAssociate(conn_from_client net.Conn) {
 	localAddr := udpConn.LocalAddr().(*net.UDPAddr)
 	zap.S().Infof("[udp] opened udp relay on %s", localAddr)
 	if err := SendSocks5Reply(conn_from_client, RepSuccess, localAddr); err != nil {
-		zap.S().Infof("[udp] failed to send reply: %v", err)
+		zap.S().Errorf("[udp] failed to send reply: %v", err)
 		return
 	}
 	done := make(chan struct{})
@@ -96,7 +110,7 @@ func handleUDPAssociate(conn_from_client net.Conn) {
 				udpConn.SetReadDeadline(time.Now().Add(5 * time.Minute))
 				continue
 			}
-			zap.S().Infof("[udp] read error: %v", err)
+			zap.S().Errorf("[udp] read error: %v", err)
 			return
 		}
 		udpConn.SetReadDeadline(time.Now().Add(5 * time.Minute))
@@ -104,11 +118,11 @@ func handleUDPAssociate(conn_from_client net.Conn) {
 			zap.S().Infof("[udp] packet too short: %d bytes", n)
 			continue
 		}
-		go handleUDPPacket(udpConn, clientAddr, buf[:n])
+		go s.handleUDPPacket(udpConn, clientAddr, buf[:n])
 	}
 }
 
-func handleUDPPacket(udpConn *net.UDPConn, clientAddr *net.UDPAddr, packet []byte) {
+func (s *Server) handleUDPPacket(udpConn *net.UDPConn, clientAddr *net.UDPAddr, packet []byte) {
 	if len(packet) < 10 {
 		return
 	}
@@ -156,25 +170,25 @@ func handleUDPPacket(udpConn *net.UDPConn, clientAddr *net.UDPAddr, packet []byt
 	data := packet[dataOffset:]
 	zap.S().Infof("[udp] relaying %d bytes from %s to %s", len(data), clientAddr, dstAddr)
 
-	if BlockedCache != nil && BlockedCache.isBlocked(dstAddr) {
+	if s.Blocked != nil && s.Blocked.isBlocked(dstAddr) {
 		zap.S().Infof("[udp] target %s is blocked", dstAddr)
 		return
 	}
 	targetConn, err := net.DialTimeout("udp", dstAddr, 6*time.Second)
 	if err != nil {
-		zap.S().Infof("[udp] failed to dial %s: %v", dstAddr, err)
-		if BlockedCache != nil {
-			BlockedCache.markBlocked(dstAddr)
-			zap.S().Infof("[socks] marking %s as blocked for %s", dstAddr, BlockedCache.ttl)
+		zap.S().Errorf("[udp] failed to dial %s: %v", dstAddr, err)
+		if s.Blocked != nil {
+			s.Blocked.markBlocked(dstAddr)
+			zap.S().Infof("[socks] marking %s as blocked for %s", dstAddr, s.Blocked.ttl)
 		}
 		return
 	}
 	defer targetConn.Close()
-	if BlockedCache != nil {
-		BlockedCache.unmarkBlocked(dstAddr)
+	if s.Blocked != nil {
+		s.Blocked.unmarkBlocked(dstAddr)
 	}
 	if _, err := targetConn.Write(data); err != nil {
-		zap.S().Infof("[udp] failed to write to target: %v", err)
+		zap.S().Errorf("[udp] failed to write to target: %v", err)
 		return
 	}
 	targetConn.SetReadDeadline(time.Now().Add(10 * time.Second))
@@ -184,19 +198,19 @@ func handleUDPPacket(udpConn *net.UDPConn, clientAddr *net.UDPAddr, packet []byt
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			zap.S().Infof("[udp] target response timeout for %s", dstAddr)
 		} else {
-			zap.S().Infof("[udp] failed to read from target: %v", err)
+			zap.S().Errorf("[udp] failed to read from target: %v", err)
 		}
 		return
 	}
-	response := buildUDPResponse(dstAddr, respBuf[:n])
+	response := s.buildUDPResponse(dstAddr, respBuf[:n])
 	if _, err := udpConn.WriteToUDP(response, clientAddr); err != nil {
-		zap.S().Infof("[udp] failed to write back to client: %v", err)
+		zap.S().Errorf("[udp] failed to write back to client: %v", err)
 	} else {
 		zap.S().Infof("[udp] repyed %d bytes back to client", n)
 	}
 }
 
-func buildUDPResponse(addr string, data []byte) []byte {
+func (s *Server) buildUDPResponse(addr string, data []byte) []byte {
 	host, postStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil
@@ -225,24 +239,24 @@ func buildUDPResponse(addr string, data []byte) []byte {
 	return header
 }
 
-func relay(conn_from_client net.Conn, targetAddr string) error {
+func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 	// --- 检查目标地址是否在阻止列表中 ---
-	if BlockedCache != nil && BlockedCache.isBlocked(targetAddr) {
+	if s.Blocked != nil && s.Blocked.isBlocked(targetAddr) {
 		return fmt.Errorf("refuse to dial blocked cache")
 	}
 	// 尝试进行 TCP 握手
 	conn_from_server, err := net.DialTimeout("tcp", targetAddr, 6*time.Second)
 	// dial 失败, 封禁 BlockedCache.ttl 时间
 	if err != nil {
-		if BlockedCache != nil {
-			BlockedCache.markBlocked(targetAddr)
-			zap.S().Infof("[socks] marking %s as blocked for %s", targetAddr, BlockedCache.ttl)
+		if s.Blocked != nil {
+			s.Blocked.markBlocked(targetAddr)
+			zap.S().Infof("[socks] marking %s as blocked for %s", targetAddr, s.Blocked.ttl)
 		}
 		return err
 	}
 	// dial成功, 解除封禁
-	if BlockedCache != nil {
-		BlockedCache.unmarkBlocked(targetAddr)
+	if s.Blocked != nil {
+		s.Blocked.unmarkBlocked(targetAddr)
 	}
 
 	// 设置较大的读写缓冲区和禁用 Nagle 算法
@@ -258,7 +272,7 @@ func relay(conn_from_client net.Conn, targetAddr string) error {
 	}
 	// 调用工具方法 SendSocks5Reply() 发送成功响应给客户端
 	if err := SendSocks5Reply(conn_from_client, RepSuccess, nil); err != nil {
-		zap.S().Infof("[socks] failed to send reply : %v", err)
+		zap.S().Errorf("[socks] failed to send reply : %v", err)
 		return err
 	}
 
@@ -270,25 +284,31 @@ func relay(conn_from_client net.Conn, targetAddr string) error {
 		bufPtr := utils.Pool.Get().(*[]byte)
 		buf := *bufPtr
 		defer utils.Pool.Put(bufPtr)
-
+		clientIP := conn_from_client.RemoteAddr().String()
 		var localCounter uint64 // 每个协程私有的计数器
 
 		for {
 			n, err := src.Read(buf)
 			if n > 0 {
 				if _, werr := dst.Write(buf[:n]); werr != nil {
-					zap.S().Infof("[relay] write err: %v", werr)
+					zap.S().Errorf("[relay] write err: %v", werr)
 					break
 				}
 				localCounter += uint64(n)
 				if localCounter >= 16*1024 {
-					metrics.AddToTotals(isUpload, localCounter)
+					metrics.BroadcastRawTraffic(&metrics.RawTrafficEvent{
+						Timestamp: time.Now().Unix(),
+						ClientIP:  clientIP,
+						IsUpload:  isUpload,
+						ByteCount: localCounter,
+					})
 					localCounter = 0
 				}
+				metrics.AddToTotals(isUpload, uint64(n))
 			}
 			if err != nil {
 				if !utils.IsIgnorableError(err) && err != io.EOF {
-					zap.S().Infof("[relay] read err: %v", err)
+					zap.S().Errorf("[relay] read err: %v", err)
 				}
 				if localCounter > 0 {
 					metrics.AddToTotals(isUpload, localCounter)

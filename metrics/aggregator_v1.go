@@ -3,54 +3,58 @@ package metrics
 import (
 	"sync/atomic"
 	"time"
-
-	"github.com/socks5-proxy/user"
 )
 
 // StartMetricsAggregatorV1 启动一个后台协程，每 interval 把增量上报到 currentUser 并记录时间序列点
-func StartMetricsAggregatorV1(interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	var lastU, lastD uint64
-	for range ticker.C {
-		U := atomic.LoadUint64(&totalUpload)
-		D := atomic.LoadUint64(&totalDownload)
+func StartRawTrafficAggregator(interval time.Duration) {
+	ch := Subscribe()
 
-		deltaU := U - lastU
-		deltaD := D - lastD
-		if U > lastU {
-			deltaU = U - lastU
-		} else {
-			deltaU = 0
-		}
-		if D > lastD {
-			deltaD = D - lastD
-		} else {
-			deltaD = 0
-		}
-		lastU = U
-		lastD = D
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		defer Unsubscribe(ch)
 
-		if deltaU > 0 || deltaD > 0 {
-			cu := user.GetCurrentUser()
-			if deltaU > 0 {
-				cu.AddUpload(deltaU)
+		var lastTime time.Time
+		var deltaU, deltaD uint64
+
+		for {
+			select {
+			case event := <-ch:
+				if event.IsUpload {
+					deltaU += event.ByteCount
+				} else {
+					deltaD += event.ByteCount
+				}
+
+			case <-ticker.C:
+				now := time.Now()
+				elapsed := now.Sub(lastTime).Seconds()
+				if elapsed <= 0 {
+					elapsed = interval.Seconds()
+				}
+				lastTime = now
+
+				// 更新全局计数器（用于 GetTotals）
+				atomic.AddUint64(&totalUpload, deltaU)
+				atomic.AddUint64(&totalDownload, deltaD)
+
+				// 计算并存储 Point
+				pt := Point{
+					Ts:            now.Unix(),
+					UploadSpeed:   uint64(float64(deltaU) / elapsed),
+					DownloadSpeed: uint64(float64(deltaD) / elapsed),
+				}
+
+				seriesMu.Lock()
+				series = append(series, pt)
+				if len(series) > maxPoints {
+					series = series[len(series)-maxPoints:]
+				}
+				seriesMu.Unlock()
+
+				deltaU = 0
+				deltaD = 0
 			}
-			if deltaD > 0 {
-				cu.AddDownload(deltaD)
-			}
 		}
-		pt := Point{
-			Ts:            time.Now().Unix(),
-			UploadSpeed:   deltaU,
-			DownloadSpeed: deltaD,
-		}
-		seriesMu.Lock()
-		series = append(series, pt)
-		if len(series) > maxPoints {
-			series = series[len(series)-maxPoints:]
-		}
-		seriesMu.Unlock()
-		broadcast(pt)
-	}
+	}()
 }

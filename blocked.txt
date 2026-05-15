@@ -11,3 +11,5 @@ www.googleapis.com:443
 accounts.google.com:443
 data.bilibili.com:443
 api.live.bilibili.com:443
+www.youtube.com:443
+chromewebstore.google.com:443
