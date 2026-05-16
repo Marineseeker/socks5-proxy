@@ -16,7 +16,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func WsHandler(w http.ResponseWriter, r *http.Request) {
+func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		zap.S().Errorf("failed to upgrade http to websocket: %v", err)
@@ -37,7 +37,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 		var smoothU, smoothD float64
 		smoothingAlpha := 0.3
 
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for {
@@ -69,7 +69,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 					smoothU = smoothingAlpha*instU + (1.0-smoothingAlpha)*smoothU
 					smoothD = smoothingAlpha*instD + (1.0-smoothingAlpha)*smoothD
 				}
-				pt := Point{
+				pt := &Point{
 					Ts:            now.Unix(),
 					UploadSpeed:   uint64(smoothU),
 					DownloadSpeed: uint64(smoothD),

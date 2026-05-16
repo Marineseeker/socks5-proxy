@@ -52,7 +52,7 @@ func startWebSocketServer(addr string, interval time.Duration) {
 	// 注册静态文件和 metrics 路由
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		// todo interval 参数可以配置化
-		metrics.WsHandler(w, r) // 传入 interval 参数
+		metrics.WsHandler(w, r, interval) // 传入 interval 参数
 	})
 	http.HandleFunc("/metrics/series", metrics.SeriesHandler)
 	http.HandleFunc("/metrics/latest", metrics.LatestHandler)

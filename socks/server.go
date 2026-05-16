@@ -305,7 +305,6 @@ func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 					})
 					localCounter = 0
 				}
-
 			}
 			if err != nil {
 				if !utils.IsIgnorableError(err) && err != io.EOF {
