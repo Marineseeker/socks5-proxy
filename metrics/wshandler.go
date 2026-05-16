@@ -47,6 +47,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 			case event := <-ch:
 				// 累加原始字节数
 				if event.IsUpload {
+					// 每个event都会被累加到全局变量, 每秒发送一次
 					deltaU += event.ByteCount
 				} else {
 					deltaD += event.ByteCount
@@ -77,6 +78,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 				if err := conn.WriteJSON(pt); err != nil {
 					return
 				}
+				// 以 interval 为周期, 重置全局变量的状态
 				deltaU = 0
 				deltaD = 0
 			}
