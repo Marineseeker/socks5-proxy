@@ -285,7 +285,7 @@ func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 		buf := *bufPtr
 		defer utils.Pool.Put(bufPtr)
 		clientIP := conn_from_client.RemoteAddr().String()
-		var localCounter uint64 // 每个协程私有的计数器
+		var localCounter uint64
 
 		for {
 			n, err := src.Read(buf)

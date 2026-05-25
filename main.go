@@ -26,8 +26,6 @@ func main() {
 	utils.InitLogger()
 	defer utils.Sync()
 
-	zap.L().Info("starting socks5 server")
-
 	flag.StringVar(&wsAddr, "ws-addr", ":8080", "websocket address to listen on")
 	flag.StringVar(&listenAddr, "listen", ":1080", "local address to listen on")
 	flag.DurationVar(&blockedTTL, "blocked-ttl", 10*time.Minute, "duration to block an address")

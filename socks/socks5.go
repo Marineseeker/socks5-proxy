@@ -99,7 +99,6 @@ func validateUserPass(username, password string) bool {
 // +----+-----+-------+------+----------+----------+
 // | 1  |  1  | X'00' |  1   | Variable |    2     |
 // +----+-----+-------+------+----------+----------+
-//
 // Parse request and return cmd, targetAddr
 func Socks5ParseRequest(conn net.Conn) (byte, string, error) {
 	header := make([]byte, 4)
