@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -27,12 +28,12 @@ func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 	// 订阅原始流量事件
 	ch := Subscribe()
 	defer Unsubscribe(ch)
-
-	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
 	// 消费者端计算 Point
 	go func() {
-		var lastTime time.Time
+		lastTime := time.Now()
 		var deltaU, deltaD uint64
 		var smoothU, smoothD float64
 		smoothingAlpha := 0.3
@@ -42,7 +43,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 
 		for {
 			select {
-			case <-done:
+			case <-ctx.Done():
 				return
 			case event := <-ch:
 				// 累加原始字节数
@@ -87,10 +88,15 @@ func WsHandler(w http.ResponseWriter, r *http.Request, interval time.Duration) {
 
 	// 保持连接
 	for {
-		_, _, err := conn.ReadMessage()
-		if err != nil {
-			close(done)
-			break
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				cancel()
+				return
+			}
 		}
 	}
 }

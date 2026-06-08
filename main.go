@@ -38,10 +38,16 @@ func main() {
 	// 启动全局流量聚合器，每5秒生成一个时间序列点并上报到当前用户
 	// todo 参数可配置化
 	// go metrics.StartMetricsAggregatorV2(interval, 0.3) // 传入 interval 和 smoothingAlpha 参数
+
 	// 启动命令行接口为 goroutine，使其能并发接收 stdin 输入
 	go cmd.HandleCommandLine()
+
 	// 启动 WebSocket 服务器
 	go startWebSocketServer(wsAddr, interval)
+
+	// 启动 Kafka 处理器
+	go metrics.StartKafkaHandler()
+
 	// 启动服务器（阻塞）
 	socks.RunServer(listenAddr)
 }
