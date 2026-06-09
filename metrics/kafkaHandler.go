@@ -24,7 +24,7 @@ func NewKafkaHandler() (*KafkaHandler, error) {
 	}, nil
 }
 
-func (h *KafkaHandler) Start() {
+func (h *KafkaHandler) start() {
 	zap.S().Info("KafkaHandler started")
 
 	for event := range h.ch {
@@ -47,11 +47,11 @@ func StartKafkaHandler() error {
 	if err != nil {
 		return err
 	}
-	handler.Start()
+	handler.start()
 	return nil
 }
 
-func (h *KafkaHandler) Stop() {
+func (h *KafkaHandler) stop() {
 	Unsubscribe(h.ch)
 	h.producer.Close()
 	zap.S().Info("Kafka handler stopped")

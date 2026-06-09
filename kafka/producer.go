@@ -3,8 +3,9 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/segmentio/kafka-go"
 )
