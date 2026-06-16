@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/socks5-proxy/metrics"
+	"github.com/socks5-proxy/metrics_v2"
 	"github.com/socks5-proxy/utils"
 	"go.uber.org/zap"
 )
@@ -206,7 +207,7 @@ func (s *Server) handleUDPPacket(udpConn *net.UDPConn, clientAddr *net.UDPAddr, 
 	if _, err := udpConn.WriteToUDP(response, clientAddr); err != nil {
 		zap.S().Errorf("[udp] failed to write back to client: %v", err)
 	} else {
-		zap.S().Infof("[udp] repyed %d bytes back to client", n)
+		zap.S().Infof("[udp] replied %d bytes back to client", n)
 	}
 }
 
@@ -284,30 +285,40 @@ func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 		bufPtr := utils.Pool.Get().(*[]byte)
 		buf := *bufPtr
 		defer utils.Pool.Put(bufPtr)
-		clientIP := conn_from_client.RemoteAddr().String()
-		var localCounter uint64
+		// clientIP := conn_from_client.RemoteAddr().String()
+		clientAddr := conn_from_client.RemoteAddr().String()
+		host, _, err := net.SplitHostPort(clientAddr)
+		if err != nil {
+			host = clientAddr // 如果无法解析，使用原始地址
+		}
+		clientIP := host
+		// var localCounter uint64
 
 		for {
 			n, err := src.Read(buf)
 			if n > 0 {
 				if _, werr := dst.Write(buf[:n]); werr != nil {
-					zap.S().Errorf("[relay] write err: %v", werr)
+					if utils.IsExpectedNetError(werr) {
+						zap.S().Errorf("[relay] write err: %v", werr)
+					}
 					break
 				}
 				metrics.AddToTotals(isUpload, uint64(n))
-				localCounter += uint64(n)
-				if localCounter >= 16*1024 {
-					metrics.BroadcastRawTraffic(&metrics.RawTrafficEvent{
-						Timestamp: time.Now().Unix(),
-						ClientIP:  clientIP,
-						IsUpload:  isUpload,
-						ByteCount: localCounter,
-					})
-					localCounter = 0
-				}
+				// localCounter += uint64(n)
+				// if localCounter >= 16*1024 {
+				// 	// metrics.BroadcastRawTraffic(&metrics.RawTrafficEvent{
+				// 	// 	Timestamp: time.Now().Unix(),
+				// 	// 	ClientIP:  clientIP,
+				// 	// 	IsUpload:  isUpload,
+				// 	// 	ByteCount: localCounter,
+				// 	// })
+				// 	localCounter = 0
+				// }
+
+				metrics_v2.AddTraffic(clientIP, isUpload, uint64(n))
 			}
 			if err != nil {
-				if !utils.IsIgnorableError(err) && err != io.EOF {
+				if utils.IsExpectedNetError(err) && err != io.EOF {
 					zap.S().Errorf("[relay] read err: %v", err)
 				}
 				break

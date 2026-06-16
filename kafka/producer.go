@@ -86,6 +86,14 @@ func (p *Producer) Send(
 	)
 }
 
+func (p *Producer) SendString(
+	ctx context.Context,
+	key string,
+	value []byte,
+) error {
+	return p.Send(ctx, []byte(key), value)
+}
+
 func (p *Producer) Close() error {
 	return p.writer.Close()
 }
