@@ -9,6 +9,7 @@ import (
 	"github.com/socks5-proxy/metrics"
 	"github.com/socks5-proxy/metrics_v2"
 	"github.com/socks5-proxy/socks"
+	"github.com/socks5-proxy/socks_tun"
 	"github.com/socks5-proxy/utils"
 	"go.uber.org/zap"
 )
@@ -28,7 +29,7 @@ func main() {
 	defer utils.Sync()
 
 	flag.StringVar(&wsAddr, "ws-addr", ":8080", "websocket address to listen on")
-	flag.StringVar(&listenAddr, "listen", ":1081", "local address to listen on")
+	flag.StringVar(&listenAddr, "listen", ":1080", "local address to listen on")
 	flag.DurationVar(&blockedTTL, "blocked-ttl", 10*time.Minute, "duration to block an address")
 	flag.StringVar(&blockedFile, "blocked-file", "blocked.txt", "file to store permanently blocked addresses")
 	flag.DurationVar(&interval, "interval", 1*time.Second, "interval for metrics aggregation, it indecates both the frequency of generating new time series points and the window size for smoothing the metrics")
@@ -53,6 +54,9 @@ func main() {
 	if err := metrics_v2.StartAggregator(interval); err != nil {
 		zap.S().Fatalf("failed to start aggregator: %v", err)
 	}
+
+	tunDevice := socks_tun.NewTunDevice(0x400000)
+	tunDevice.Start("SocksTun0")
 
 	// 启动服务器（阻塞）
 	socks.RunServer(listenAddr)
