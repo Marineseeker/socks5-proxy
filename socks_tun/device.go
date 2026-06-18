@@ -2,6 +2,8 @@ package socks_tun
 
 import (
 	"errors"
+	"fmt"
+	"os/exec"
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/windows"
@@ -59,7 +61,6 @@ func (t *TunDevice) Start(tunName string) error {
 	// 可以理解为 __"在这张虚拟网卡上开辟的一段用户态↔内核态共享 Ring Buffer 的读写句柄"__。
 	// Adapter 决定"网卡是否存在"，Session 决定"这张网卡上的数据流是否打开"
 	// ——前者是设备，后者是通道。
-
 	session, err := adapter.StartSession(t.ringBufSize)
 	if err != nil {
 		adapter.Close()
@@ -69,8 +70,37 @@ func (t *TunDevice) Start(tunName string) error {
 	t.adapter = adapter
 	t.session = &session
 
+	if err := t.configureIP(tunName); err != nil {
+		t.Close()
+		return err
+	}
+
 	go t.handleSession()
 
+	return nil
+}
+
+func (t *TunDevice) configureIP(name string) error {
+	cmd := exec.Command(
+		"netsh",
+		"interface",
+		"ipv4",
+		"set",
+		"address",
+		fmt.Sprintf(`name=%s`, name),
+		"static",
+		"10.0.0.1",
+		"255.255.255.0",
+	)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf(
+			"configure tun ip failed: %v: %s",
+			err,
+			string(out),
+		)
+	}
 	return nil
 }
 
@@ -125,8 +155,11 @@ func (t *TunDevice) handleSession() {
 				)
 				zap.S().Infof("Received TCP packet: %v", tcpHeader)
 			case 17:
-				// todo 解析 UDP 包头
+				// todo 解析 UDP 包头，目前先不处理 UDP 包
 				err = parseUDPHeader(payload)
+				if err != nil {
+					zap.S().Errorf("Failed to parse UDP header: %v", err)
+				}
 			}
 		case 6:
 			// IPv6 packet

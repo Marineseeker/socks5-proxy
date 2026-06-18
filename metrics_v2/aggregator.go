@@ -13,8 +13,6 @@ import (
 type Aggregator struct {
 	producer *kafka.Producer
 	interval time.Duration
-	ctx      context.Context
-	cancel   context.CancelFunc
 	running  bool
 }
 
@@ -34,13 +32,9 @@ func StartAggregator(interval time.Duration) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	defaultAggregator = &Aggregator{
 		producer: producer,
 		interval: interval,
-		ctx:      ctx,
-		cancel:   cancel,
 		running:  true,
 	}
 
@@ -50,28 +44,12 @@ func StartAggregator(interval time.Duration) error {
 	return nil
 }
 
-// StopAggregator 停止聚合器
-func StopAggregator() {
-	if defaultAggregator != nil && defaultAggregator.running {
-		defaultAggregator.cancel()
-		defaultAggregator.producer.Close()
-		defaultAggregator.running = false
-		zap.S().Info("Aggregator stopped")
-	}
-}
-
 // run 聚合器主循环
 func (a *Aggregator) run() {
 	ticker := time.NewTicker(a.interval)
 	defer ticker.Stop()
-
-	for {
-		select {
-		case <-a.ctx.Done():
-			return
-		case <-ticker.C:
-			a.collectAndSend()
-		}
+	for range ticker.C {
+		a.collectAndSend()
 	}
 }
 
@@ -93,7 +71,7 @@ func (a *Aggregator) collectAndSend() {
 		}
 
 		// 使用客户端IP作为 Kafka key，保证相同IP的消息落在同一分区
-		err = a.producer.SendString(a.ctx, m.ClientIP, data)
+		err = a.producer.SendString(context.Background(), m.ClientIP, data)
 		if err != nil {
 			zap.S().Errorf("failed to send to Kafka: client=%s, err=%v", m.ClientIP, err)
 		} else {

@@ -51,6 +51,5 @@ func parseIPv4Header(packet []byte) (*IPv4Header, error) {
 		SrcIP: net.IP(packet[12:16]),
 		DstIP: net.IP(packet[16:20]),
 	}
-
 	return header, nil
 }

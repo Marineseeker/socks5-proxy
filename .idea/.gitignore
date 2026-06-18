@@ -6,3 +6,6 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+
+# GitHub Copilot 本地迁移/缓存文件
+/copilot.data.migration.*
