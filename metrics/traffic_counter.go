@@ -1,4 +1,4 @@
-package metrics_v2
+package metrics
 
 import (
 	"sync"
@@ -20,7 +20,7 @@ type ClientTrafficMap struct {
 type clientAtomicCounter struct {
 	upload     uint64
 	download   uint64
-	lastActive int64 // Unix timestamp, atomic
+	lastActive int64                // Unix timestamp, atomic
 	_          [64 - (24 % 64)]byte // 填充到 64 字节，避免伪共享
 }
 

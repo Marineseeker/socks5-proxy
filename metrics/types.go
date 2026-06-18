@@ -1,4 +1,4 @@
-package metrics_v2
+package metrics
 
 // TrafficMetric 表示某客户端在一个统计周期内的流量数据
 type TrafficMetric struct {

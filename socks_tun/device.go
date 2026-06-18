@@ -101,6 +101,7 @@ func (t *TunDevice) configureIP(name string) error {
 			string(out),
 		)
 	}
+	zap.S().Infof("Configured tun IP: %s", string(out))
 	return nil
 }
 
@@ -153,7 +154,6 @@ func (t *TunDevice) handleSession() {
 					tcpHeader.DstPort,
 					tcpHeader.FlagString(),
 				)
-				zap.S().Infof("Received TCP packet: %v", tcpHeader)
 			case 17:
 				// todo 解析 UDP 包头，目前先不处理 UDP 包
 				err = parseUDPHeader(payload)

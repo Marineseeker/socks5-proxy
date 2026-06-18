@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/socks5-proxy/metrics"
-	"github.com/socks5-proxy/metrics_v2"
 	"github.com/socks5-proxy/utils"
 	"go.uber.org/zap"
 )
@@ -303,19 +302,7 @@ func (s *Server) relay(conn_from_client net.Conn, targetAddr string) error {
 					}
 					break
 				}
-				metrics.AddToTotals(isUpload, uint64(n))
-				// localCounter += uint64(n)
-				// if localCounter >= 16*1024 {
-				// 	// metrics.BroadcastRawTraffic(&metrics.RawTrafficEvent{
-				// 	// 	Timestamp: time.Now().Unix(),
-				// 	// 	ClientIP:  clientIP,
-				// 	// 	IsUpload:  isUpload,
-				// 	// 	ByteCount: localCounter,
-				// 	// })
-				// 	localCounter = 0
-				// }
-
-				metrics_v2.AddTraffic(clientIP, isUpload, uint64(n))
+				metrics.AddTraffic(clientIP, isUpload, uint64(n))
 			}
 			if err != nil {
 				if utils.IsExpectedNetError(err) && err != io.EOF {
